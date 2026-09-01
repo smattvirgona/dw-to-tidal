@@ -123,3 +123,33 @@ def test_schedule_not_twice_a_day_and_backs_off_after_failure():
     assert not app.schedule_due(_cfg(), now, None, 100.0, 100.0 + 60)
     assert app.schedule_due(_cfg(), now, None, 100.0, 100.0 + app.RETRY_AFTER_FAILURE)
     assert not app.schedule_due(_cfg(schedule_enabled=False), now, None, -1e9, 0.0)
+
+
+# ------------------------------------------------------------- folders
+
+class _PL:
+    def __init__(self, name, parent=None):
+        self.name, self.parent_folder_id, self.trn = name, parent, f"trn:playlist:{name}"
+
+
+class _Folder:
+    name = "Weekly discoveries"
+    def __init__(self): self.moved = []
+    def add_items(self, trns): self.moved.extend(trns)
+
+
+def test_tidy_into_folder_moves_only_root_dw_playlists():
+    f = _Folder()
+    app.tidy_into_folder(None, f, [_PL("Discover Weekly 2026-09-01"), _PL("Discover Weekly 2026-08-25", "fid"), _PL("Other")])
+    assert f.moved == ["trn:playlist:Discover Weekly 2026-09-01"]
+
+
+def test_get_or_create_folder_blank_name_returns_none():
+    assert app.get_or_create_folder(None, "  ") is None
+
+
+def test_get_or_create_folder_matches_case_insensitively(monkeypatch):
+    monkeypatch.setattr(app, "list_folders", lambda s: [{"id": "abc", "name": "weekly DISCOVERIES", "trn": "t"}])
+    class S:
+        def folder(self, fid): return ("folder", fid)
+    assert app.get_or_create_folder(S(), "Weekly discoveries") == ("folder", "abc")

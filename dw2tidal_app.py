@@ -59,7 +59,9 @@ DEFAULT_CONFIG = {
     "schedule_enabled": False,
     "weekday": 0,
     "hour": 8,
+    "folder_name": "Weekly discoveries",
 }
+PLAYLIST_PREFIX = "Discover Weekly "
 
 LOCK = threading.Lock()
 STATE = {
@@ -420,6 +422,46 @@ def match_on_tidal(s: "tidalapi.Session", tracks: list[dict]) -> tuple[list[int]
     return ids, missed
 
 
+def list_folders(s: "tidalapi.Session") -> list[dict]:
+    """[{id, name, trn}] of the user's top-level playlist folders (v2 collection API)."""
+    # The endpoint ignores `offset` when filtered to folders, so ask for one big page.
+    r = s.request.request(
+        "GET", "my-collection/playlists/folders",
+        params={"folderId": "root", "includeOnly": "FOLDER", "limit": 50},
+        base_url=s.config.api_v2_location,
+    )
+    out = []
+    for it in r.json().get("items") or []:
+        fid = (it.get("data") or {}).get("id")
+        if it.get("itemType") == "FOLDER" and fid:
+            out.append({"id": fid, "name": it.get("name", ""), "trn": it.get("trn")})
+    return out
+
+
+def get_or_create_folder(s: "tidalapi.Session", name: str):
+    """Returns a tidalapi Folder (or None if name is blank). Matches existing folders case-insensitively."""
+    name = (name or "").strip()
+    if not name:
+        return None
+    for f in list_folders(s):
+        if f["name"].strip().lower() == name.lower():
+            return s.folder(f["id"])
+    log(f"Creating TIDAL folder '{name}'.")
+    return s.user.create_folder(name)
+
+
+def tidy_into_folder(s: "tidalapi.Session", folder, playlists) -> None:
+    """Move earlier 'Discover Weekly …' playlists that sit at the root into the folder."""
+    stray = [p for p in playlists if p.name.startswith(PLAYLIST_PREFIX) and not getattr(p, "parent_folder_id", None)]
+    if not stray:
+        return
+    try:
+        folder.add_items([p.trn for p in stray])
+        log(f"Moved {len(stray)} earlier playlist(s) into '{folder.name}'.")
+    except Exception as e:
+        logger.warning("Could not move playlists into folder: %s", e)
+
+
 # ---------------------------------------------------------------- the job
 
 def run_job(trigger: str) -> None:
@@ -438,9 +480,17 @@ def run_job(trigger: str) -> None:
             log("TIDAL isn't connected (or the login expired). Press 'Connect TIDAL' first.")
             return
 
-        name = f"Discover Weekly {datetime.date.today():%Y-%m-%d}"
-        if any(p.name == name for p in s.user.playlists()):
+        name = f"{PLAYLIST_PREFIX}{datetime.date.today():%Y-%m-%d}"
+        existing = s.user.playlists()
+        folder = None
+        try:
+            folder = get_or_create_folder(s, cfg.get("folder_name", ""))
+        except Exception as e:
+            log(f"Couldn't open the TIDAL folder ({e}); playlist will go to the top level.")
+        if any(p.name == name for p in existing):
             log(f"'{name}' already exists in TIDAL. Nothing to do.")
+            if folder is not None:
+                tidy_into_folder(s, folder, existing)
             STATE["last_run_date"] = str(datetime.date.today())
             save_state()
             ok = True
@@ -466,9 +516,13 @@ def run_job(trigger: str) -> None:
             log("No matches found on TIDAL. Playlist not created.")
             return
 
-        pl = s.user.create_playlist(name, "Mirrored from Spotify Discover Weekly")
+        pl = s.user.create_playlist(name, "Mirrored from Spotify Discover Weekly",
+                                    parent_id=folder.id if folder is not None else "root")
         pl.add([str(i) for i in tidal_ids])
-        result = f"Created '{name}' with {len(tidal_ids)} of {len(tracks)} tracks."
+        if folder is not None:
+            tidy_into_folder(s, folder, existing)
+        where = f" in folder '{folder.name}'" if folder is not None else ""
+        result = f"Created '{name}'{where} with {len(tidal_ids)} of {len(tracks)} tracks."
         log(result)
         if missed:
             log("Not found on TIDAL: " + "; ".join(missed))
@@ -605,6 +659,9 @@ PAGE = r"""<!doctype html>
       <label for="dw">Discover Weekly link</label>
       <input id="dw" type="text" placeholder="https://open.spotify.com/playlist/37i9dQZEVX…" autocomplete="off">
       <p class="note">In Spotify: open Discover Weekly → ⋯ → Share → Copy link. It stays the same every week.</p>
+      <label for="folder">TIDAL folder for the weekly playlists</label>
+      <input id="folder" type="text" placeholder="Weekly discoveries" autocomplete="off">
+      <p class="note">Leave blank to put playlists at the top level.</p>
 
       <details>
         <summary>Optional: exact matching with a Spotify developer key</summary>
@@ -660,10 +717,10 @@ function flash(id) { $(id).textContent = "Saved"; setTimeout(() => $(id).textCon
 async function loadConfig() {
   const c = await api("/config");
   $("dw").value = c.dw_url; $("cid").value = c.spotify_client_id; $("csec").value = c.spotify_client_secret;
-  $("weekday").value = c.weekday; $("hour").value = c.hour; $("enabled").checked = c.schedule_enabled;
+  $("folder").value = c.folder_name; $("weekday").value = c.weekday; $("hour").value = c.hour; $("enabled").checked = c.schedule_enabled;
 }
 function gather() {
-  return { dw_url: $("dw").value.trim(), spotify_client_id: $("cid").value.trim(), spotify_client_secret: $("csec").value.trim(),
+  return { dw_url: $("dw").value.trim(), spotify_client_id: $("cid").value.trim(), spotify_client_secret: $("csec").value.trim(), folder_name: $("folder").value.trim(),
            weekday: +$("weekday").value, hour: +$("hour").value, schedule_enabled: $("enabled").checked };
 }
 async function save(id) { const r = await api("/config", gather()); if (r.ok) flash(id); else alert(r.error || "Could not save."); }
