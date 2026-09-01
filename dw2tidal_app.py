@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "requests==2.34.2",
+#     "tidalapi==0.8.11",
+# ]
+# ///
 """
 Discover Weekly → TIDAL  (local app)
 

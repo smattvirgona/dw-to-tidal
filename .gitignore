@@ -1,6 +1,6 @@
-.venv/
 __pycache__/
+.DS_Store
+.venv/
+*.pyc
 build/
 dist/
-*.pyc
-.DS_Store
