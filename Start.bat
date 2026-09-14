@@ -1,5 +1,5 @@
 @echo off
-REM DW to TIDAL - Windows launcher. Double-click to run.
+REM DW to TIDAL - Windows launcher. Double-click to open. The app then runs hidden in the background.
 REM First run downloads a small Python runtime into %USERPROFILE%\.dw2tidal (no system changes).
 cd /d "%~dp0"
 set "DIR=%USERPROFILE%\.dw2tidal"
@@ -11,6 +11,7 @@ set "UV_NO_MODIFY_PATH=1"
 set "UV_PYTHON_PREFERENCE=only-managed"
 if not exist "%DIR%" mkdir "%DIR%"
 set "UV=%DIR%\bin\uv.exe"
+set "DW2TIDAL_UV=%UV%"
 if not exist "%UV%" (
   echo First run: downloading the runtime ^(about a minute^)...
   powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"
@@ -21,6 +22,12 @@ if not exist "%UV%" (
     exit /b 1
   )
 )
-echo Starting DW to TIDAL - keep this window open. Close it to quit.
-"%UV%" run --script dw2tidal_app.py
-pause
+echo Opening DW to TIDAL...
+"%UV%" run --script dw2tidal_app.py --show
+if errorlevel 1 (
+  echo.
+  echo Something went wrong ^(see above^).
+  pause
+  exit /b 1
+)
+exit

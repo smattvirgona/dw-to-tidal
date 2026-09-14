@@ -13,31 +13,29 @@ except to Spotify and TIDAL.
      right-click it → **Open** → **Open**. (Once.)
    - Windows: double-click **`Start.bat`**. If SmartScreen appears: **More info** → **Run anyway**.
 
-   A black window opens and, the first time only, downloads its own small Python runtime
-   (about a minute, ~100 MB, kept inside `~/.dw2tidal`; nothing is installed system-wide).
-   Then a browser tab opens at `http://127.0.0.1:8765` — that's the app.
-   **Keep the black window open**; closing it quits the app.
-3. **Paste your Discover Weekly link.** In Spotify: open Discover Weekly → `⋯` → Share → Copy link.
-   Press **Save settings**. The link stays the same every week.
-4. **Connect TIDAL.** Press *Connect TIDAL*, open the link that appears, sign in and approve.
-   You only do this once.
-5. **Tick the schedule.** Pick a day and hour (Discover Weekly refreshes on Monday) and tick
-   *Run every week at this time*. Press **Save schedule**.
-   Or press **Copy this week's playlist to TIDAL** to do it right now.
+   The first time only, a black window downloads a small Python runtime (about a minute,
+   ~100 MB, kept inside `~/.dw2tidal`; nothing is installed system-wide). Then the black window
+   closes itself and the **DW to TIDAL** window opens (an app window if you have Chrome, Edge or
+   Brave; otherwise a browser tab at `http://127.0.0.1:8765`).
+3. **Setup tab:** press *Connect TIDAL…*, open the link, sign in and approve (once). Paste your
+   Discover Weekly link (Spotify: Discover Weekly → `⋯` → Share → Copy link). Changes save by themselves.
+4. **Playlists tab:** tick what you want:
+   - *Spotify Discover Weekly*: copied every week on the day and hour you pick (it refreshes on Monday).
+   - *TIDAL My Daily Discovery*: TIDAL's mix changes every morning; each day's mix is added to one
+     playlist per week (Monday–Sunday), named by week of the year, e.g. `Week 38 (2026)`.
+     A new playlist starts each Monday. Tracks already in that week's playlist are skipped.
+   Each goes into its own TIDAL folder (default *Weekly discoveries* and *TIDAL Discovery*).
+5. **Close the window.** The app keeps running hidden and starts again when you log in.
+   Double-click `Start.command` / `Start.bat` any time to reopen the window.
 
-Each run creates `Discover Weekly YYYY-MM-DD` in the *Weekly discoveries* folder on TIDAL.
-Tracks that can't be found on TIDAL are listed in the log on the page.
+Discover Weekly runs create `Discover Weekly YYYY-MM-DD`; daily runs add to `Week NN (YYYY)`. Tracks that
+can't be found on TIDAL are listed on the *Log* tab. If the computer was asleep at the scheduled
+hour, it runs when it wakes up later that day (a shut-down computer can't run it).
+
+To stop it: **Start → Shut Down DW to TIDAL…** in the window. To stop it starting at login, untick
+*Run hidden in the background, and start when I log in* on the Setup tab.
 
 Phones (iOS/Android) aren't supported — the app has to run on a computer.
-
-### The schedule only fires while the app is open
-
-Add it to your startup items so it's always running:
-
-- **macOS:** System Settings → General → Login Items → **+** → choose `Start.command`.
-- **Windows:** press `Win+R`, type `shell:startup`, Enter, and drop a shortcut to `Start.bat` there.
-
-If the computer was asleep at the scheduled hour, it runs when it wakes up later that day.
 
 ### Optional: Spotify developer key
 
@@ -50,7 +48,9 @@ this lookup on newly created apps, in which case the app silently falls back to 
 
 Everything lives in `~/.dw2tidal/` (macOS: `/Users/you/.dw2tidal`, Windows: `C:\Users\you\.dw2tidal`):
 `config.json`, `tidal-session.json` (your TIDAL login — keep private), `state.json`, `app.log`,
-and the downloaded runtime (`bin/`, `uv/`). Delete the folder to reset / uninstall completely.
+and the downloaded runtime (`bin/`, `uv/`). The start-at-login entry is
+`~/Library/LaunchAgents/com.dw2tidal.app.plist` (macOS) or `DW to TIDAL.vbs` in the Startup folder
+(Windows). To uninstall: Shut Down, untick start-at-login (or delete that file), then delete the folder.
 
 ## Making the zip (for whoever shares it)
 
